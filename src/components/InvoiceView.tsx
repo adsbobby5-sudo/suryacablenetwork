@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Printer, Download, Share2, ChevronLeft, CheckCircle2, AlertCircle, MessageCircle, Mail, Copy } from 'lucide-react';
+import { Printer, Download, Share2, ChevronLeft, CheckCircle2, AlertCircle, MessageCircle, Mail, Copy, Loader2 } from 'lucide-react';
 import { Customer, Invoice, Payment, PLANS } from '../types';
+import { connectAndPrint } from '../utils/printer';
 
 interface InvoiceViewProps {
   invoiceId: string;
@@ -19,14 +20,66 @@ export default function InvoiceView({ invoiceId, customers, invoices, payments, 
   const invoicePayments = payments.filter(p => p.invoiceId === invoiceId).sort((a, b) => a.date.localeCompare(b.date));
 
   const [showShareMenu, setShowShareMenu] = useState(false);
+  const [isPrinting, setIsPrinting] = useState(false);
 
   if (!invoice || !customer) return <div>Invoice not found</div>;
 
-  const handlePrint = () => {
-    window.print();
+  const balance = invoice.amount - invoice.paidAmount;
+
+  // Receipt formatting utility for 32 chars width (58mm printer)
+  const formatLine = (left: string, right: string) => {
+    const spaces = 32 - (left.length + right.length);
+    if (spaces > 0) return `${left}${' '.repeat(spaces)}${right}`;
+    return `${left} ${right}`;
   };
 
-  const balance = invoice.amount - invoice.paidAmount;
+  const generateReceiptText = (): string => {
+    let receipt = '';
+    // Header section
+    receipt += '      SURYA CABLE NETWORK     \n';
+    receipt += `Invoice No: ${invoice.id}\n`;
+    receipt += `Date: ${new Date().toLocaleDateString('en-GB').replace(/\//g, '-')}\n`;
+    receipt += '\n'; // Triggers BOLD_OFF and ALIGN_LEFT in printer utils
+    receipt += `Name: ${customer.name}\n`;
+    receipt += `Box No: ${customer.boxNumber}\n`;
+    receipt += '--------------------------------\n';
+    receipt += formatLine('Plan:', `Rs.${plan?.price || 0}`) + '\n';
+    receipt += formatLine('Previous Due:', `Rs.${invoice.previousDue}`) + '\n';
+    receipt += '--------------------------------\n';
+    receipt += formatLine('TOTAL:', `Rs.${invoice.amount}`) + '\n';
+    
+    // Payments
+    if (invoicePayments.length > 0) {
+      receipt += '--------------------------------\n';
+      invoicePayments.forEach(p => {
+        const d = new Date(p.date).toLocaleDateString('en-GB').replace(/\//g, '-');
+        receipt += formatLine(`Paid (${d}):`, `Rs.${p.amount}`) + '\n';
+      });
+    }
+
+    receipt += '--------------------------------\n';
+    receipt += formatLine('BALANCE:', `Rs.${balance}`) + '\n\n';
+    receipt += '           Thank You            \n';
+    return receipt;
+  };
+
+  const handlePrint = async () => {
+    // Basic fallback for browsers that don't support Web Bluetooth (e.g Firefox, old Safari)
+    if (!navigator.bluetooth) {
+      window.print();
+      return;
+    }
+
+    try {
+      setIsPrinting(true);
+      await connectAndPrint(generateReceiptText());
+    } catch (err) {
+      console.error(err);
+      // Fallback intentionally commented out to force operator to fix bluetooth issue instead of spamming A4 prints
+    } finally {
+      setIsPrinting(false);
+    }
+  };
 
   const shareText = `*Surya Cable Network - Invoice*
 Customer: ${customer.name}
@@ -117,9 +170,13 @@ Thank you for your business!`;
               )}
             </AnimatePresence>
           </div>
-          <button onClick={handlePrint} className="btn-primary shadow-lg shadow-indigo-100">
-            <Printer size={18} />
-            Print
+          <button 
+            onClick={handlePrint} 
+            disabled={isPrinting}
+            className="btn-primary shadow-lg shadow-indigo-100 min-w-[100px]"
+          >
+            {isPrinting ? <Loader2 size={18} className="animate-spin" /> : <Printer size={18} />}
+            {isPrinting ? 'Connecting...' : 'Print'}
           </button>
         </div>
       </div>
@@ -223,64 +280,59 @@ Thank you for your business!`;
         </div>
       </motion.div>
 
-      {/* Print Only View (Simplified) */}
-      <div className="print-only p-10 text-slate-900 font-sans">
-        <div className="text-center mb-10 flex flex-col items-center">
-          <img src="/logo.png" alt="Surya Cable Network Logo" className="w-40 h-40 object-contain mb-4" />
-          <p className="text-xs text-slate-600 font-bold">N.prasad, Rama Chandra puram, Fatima medical College, CK din Mandal, Kadapa - 516003. Ph: 9000944090</p>
-          <p className="text-sm uppercase tracking-widest mt-4">Invoice for {invoice.month}</p>
+      {/* Print Only Thermal View HTML Fallback */}
+      <div className="print-only font-mono text-sm max-w-[320px] mx-auto p-4 bg-white text-black leading-tight">
+        <div className="text-center font-bold mb-4">
+          <img src="/logo.png" alt="Surya Cable Network Logo" className="w-16 h-16 mx-auto mb-2 grayscale object-contain" />
+          <p className="text-lg">SURYA CABLE NETWORK</p>
         </div>
-        <div className="flex justify-between mb-10">
-          <div>
-            <h3 className="font-bold text-lg">{customer.name}</h3>
-            <p className="text-sm">{customer.address}</p>
-            <p className="text-sm">Box: {customer.boxNumber}</p>
+        
+        <div className="mb-4">
+          <p>Invoice No: {invoice.id}</p>
+          <p>Date: {new Date().toLocaleDateString('en-GB').replace(/\//g, '-')}</p>
+        </div>
+
+        <div className="mb-4">
+          <p>Name: {customer.name}</p>
+          <p>Box No: {customer.boxNumber}</p>
+        </div>
+
+        <div className="border-y border-black py-2 mb-2 space-y-1">
+          <div className="flex justify-between">
+            <span>Plan:</span>
+            <span>Rs.{plan?.price}</span>
           </div>
-          <div className="text-right">
-            <p className="font-bold">Invoice ID: {invoice.id}</p>
-            <p className="font-bold">Billing Month: {invoice.month}</p>
+          <div className="flex justify-between">
+            <span>Previous Due:</span>
+            <span>Rs.{invoice.previousDue}</span>
           </div>
         </div>
-        <table className="w-full mb-10 border-collapse">
-          <thead>
-            <tr className="border-b-2 border-slate-900">
-              <th className="text-left py-2">Description</th>
-              <th className="text-right py-2">Amount</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr className="border-b border-slate-200">
-              <td className="py-4">Monthly Subscription - {plan?.name}</td>
-              <td className="text-right py-4">₹{plan?.price}.00</td>
-            </tr>
-            <tr className="border-b border-slate-200">
-              <td className="py-4">Previous Due</td>
-              <td className="text-right py-4">₹{invoice.previousDue}.00</td>
-            </tr>
-            <tr className="font-bold text-lg border-b border-slate-200">
-              <td className="py-4">Total Amount</td>
-              <td className="text-right py-4">₹{invoice.amount}.00</td>
-            </tr>
-            <tr className="font-bold text-slate-700">
-              <td className="py-2 pt-4">Total Paid</td>
-              <td className="text-right py-2 pt-4 font-bold text-emerald-600">₹{invoice.paidAmount}.00</td>
-            </tr>
+
+        <div className="flex justify-between font-bold text-base mb-2">
+          <span>TOTAL:</span>
+          <span>Rs.{invoice.amount}</span>
+        </div>
+
+        {invoicePayments.length > 0 && (
+          <div className="border-t border-dashed border-black pt-2 mb-2 space-y-1 text-xs">
             {invoicePayments.map((p, i) => (
-              <tr key={i} className="text-slate-500 text-sm">
-                <td className="py-1 pl-4 border-l-2 border-emerald-500">Payment on {new Date(p.date).toLocaleDateString('en-GB')}</td>
-                <td className="text-right py-1">₹{p.amount}.00</td>
-              </tr>
+              <div key={i} className="flex justify-between">
+                <span>Paid ({new Date(p.date).toLocaleDateString('en-GB')}):</span>
+                <span>Rs.{p.amount}</span>
+              </div>
             ))}
-            <tr className="font-black text-2xl border-t-2 border-slate-900">
-              <td className="py-4">Balance Due</td>
-              <td className="text-right py-4">₹{balance}.00</td>
-            </tr>
-          </tbody>
-        </table>
-        <div className="text-center mt-20">
-          <p className="font-bold">Authorized Signatory</p>
-          <div className="h-20"></div>
-          <p className="text-xs text-slate-400 italic">Thank you for your business!</p>
+          </div>
+        )}
+
+        <div className="border-y border-black py-2 mb-6">
+          <div className="flex justify-between font-bold text-base">
+            <span>BALANCE:</span>
+            <span>Rs.{balance}</span>
+          </div>
+        </div>
+
+        <div className="text-center italic mb-4">
+          <p>*** Thank You ***</p>
         </div>
       </div>
     </div>
