@@ -7,8 +7,7 @@ export async function connectAndPrint(receiptText: string): Promise<void> {
         '000018f0-0000-1000-8000-00805f9b34fb', // Standard POS generic service
         'e7810a71-73ae-499d-8c15-faa9aef0c3f2', // Mini thermal printers (e.g. MPT-2)
         '49535343-fe7d-4ae5-8fa9-9fafd205e455'  // Serial Port Profile
-      ],
-      acceptAllDevices: true // Fallback to list everything
+      ]
     });
 
     if (!device.gatt) throw new Error("Bluetooth GATT unavailable on device.");
