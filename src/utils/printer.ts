@@ -51,10 +51,14 @@ async function getLogoBytes(): Promise<number[]> {
               const b = pixels[idx + 2];
               const a = pixels[idx + 3];
               
+              // Apply heavy contrast for light colored logos on thermal paper
+              // Only practically pure white (luminance > 240) or perfectly transparent (a < 128) pixels remain white
               const luminance = (0.299 * r + 0.587 * g + 0.114 * b);
-              if (a < 128 || luminance > 128) {
+              if (a < 128 || luminance > 240) {
+                // White dot (0) - Paper background
                 byte |= (0 << (7 - bit));
               } else {
+                // Black dot (1) - Burn marker
                 byte |= (1 << (7 - bit));
               }
             }
