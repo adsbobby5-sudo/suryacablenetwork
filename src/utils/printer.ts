@@ -97,13 +97,37 @@ class PrinterService {
       
       // Only request a new device if we don't have one cached
       if (!this.device) {
+        // Try to be as broad as possible for thermal printers.
+        // Some devices don't show up if acceptAllDevices is true alongside specific optionalServices in certain Chrome versions.
         this.device = await navigator.bluetooth.requestDevice({
-          acceptAllDevices: true,
+          filters: [
+            { services: ['000018f0-0000-1000-8000-00805f9b34fb'] }, // Standard POS
+            { services: ['e7810a71-73ae-499d-8c15-faa9aef0c3f2'] }, // MPT-2 Thermal
+            { services: ['49535343-fe7d-4ae5-8fa9-9fafd205e455'] }, // Generic Serial Port Profile
+            { namePrefix: 'MPT' },
+            { namePrefix: 'MTP' },
+            { namePrefix: 'Printer' },
+            { namePrefix: 'POS' },
+            { namePrefix: 'Blue' } // extremely generic fallback for "Bluetooth Printer"
+          ],
           optionalServices: [
-            '000018f0-0000-1000-8000-00805f9b34fb', // Standard POS generic service
-            'e7810a71-73ae-499d-8c15-faa9aef0c3f2', // Mini thermal printers (e.g. MPT-2)
-            '49535343-fe7d-4ae5-8fa9-9fafd205e455'  // Serial Port Profile
+            '000018f0-0000-1000-8000-00805f9b34fb', 
+            'e7810a71-73ae-499d-8c15-faa9aef0c3f2', 
+            '49535343-fe7d-4ae5-8fa9-9fafd205e455',
+            '00001101-0000-1000-8000-00805f9b34fb' // Serial port profile baseline
           ]
+        }).catch(err => {
+            // Fallback: If specific filters fail (often throws TypeError if device doesn't support), try absolute generic catch-all
+            console.warn("Filtered search failed or cancelled, trying absolute generic search...", err);
+            return navigator.bluetooth.requestDevice({
+                acceptAllDevices: true,
+                optionalServices: [
+                    '000018f0-0000-1000-8000-00805f9b34fb', 
+                    'e7810a71-73ae-499d-8c15-faa9aef0c3f2', 
+                    '49535343-fe7d-4ae5-8fa9-9fafd205e455',
+                    '00001101-0000-1000-8000-00805f9b34fb'
+                ]
+            });
         });
 
         this.device.addEventListener('gattserverdisconnected', () => {
