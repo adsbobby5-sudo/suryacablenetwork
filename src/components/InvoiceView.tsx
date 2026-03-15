@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Printer, Download, Share2, ChevronLeft, CheckCircle2, AlertCircle, MessageCircle, Mail, Copy, Loader2 } from 'lucide-react';
+import { Printer, Download, Share2, ChevronLeft, CheckCircle2, AlertCircle, MessageCircle, Mail, Copy, Loader2, Bluetooth } from 'lucide-react';
 import { Customer, Invoice, Payment, PLANS } from '../types';
-import { connectAndPrint } from '../utils/printer';
+import { thermalPrinter } from '../utils/printer';
 
 interface InvoiceViewProps {
   invoiceId: string;
@@ -35,8 +35,8 @@ export default function InvoiceView({ invoiceId, customers, invoices, payments, 
 
   const generateReceiptText = (): string => {
     let receipt = '';
-    // Header section
-    receipt += '      SURYA CABLE NETWORK     \n';
+    // Header section (This will be BOLD and ALIGN_CENTER thanks to printer.ts logic)
+    receipt += 'SURYA CABLE NETWORK\n';
     receipt += `Invoice No: ${invoice.id}\n`;
     receipt += `Date: ${new Date().toLocaleDateString('en-GB').replace(/\//g, '-')}\n`;
     receipt += '\n'; // Triggers BOLD_OFF and ALIGN_LEFT in printer utils
@@ -72,10 +72,15 @@ export default function InvoiceView({ invoiceId, customers, invoices, payments, 
 
     try {
       setIsPrinting(true);
-      await connectAndPrint(generateReceiptText());
-    } catch (err) {
+      if (!thermalPrinter.isConnected()) {
+        await thermalPrinter.connect();
+      }
+      await thermalPrinter.print(generateReceiptText());
+    } catch (err: any) {
       console.error(err);
-      // Fallback intentionally commented out to force operator to fix bluetooth issue instead of spamming A4 prints
+      if (err.message) {
+         alert(err.message);
+      }
     } finally {
       setIsPrinting(false);
     }
