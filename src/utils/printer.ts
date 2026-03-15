@@ -172,10 +172,15 @@ class PrinterService {
 
       const payload = new Uint8Array(dataArray);
 
-      const chunkSize = 100;
+      // 4. Send Payload (Chunked with small MTU and delays to prevent GATT buffer overflow)
+      console.log(`Sending ${payload.length} bytes to printer...`);
+      // Standard BLE packet size is ~20 bytes without MTU negotiation
+      const chunkSize = 20; 
       for (let i = 0; i < payload.length; i += chunkSize) {
         const chunk = payload.slice(i, i + chunkSize);
         await this.characteristic.writeValue(chunk);
+        // Add a small delay between writes to allow the printer's buffer to process, especially for image rasters
+        await new Promise(resolve => setTimeout(resolve, 20));
       }
     } catch (error: any) {
       console.error("Print Error: ", error);
