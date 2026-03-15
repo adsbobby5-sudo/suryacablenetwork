@@ -75,37 +75,61 @@ async function getLogoBytes(): Promise<number[]> {
 class PrinterService {
   private device: BluetoothDevice | null = null;
   private characteristic: BluetoothRemoteGATTCharacteristic | null = null;
+  private isConnecting: boolean = false;
 
   public isConnected(): boolean {
     return this.device?.gatt?.connected ?? false;
   }
 
   public async connect(): Promise<void> {
-    if (this.isConnected()) return;
+    if (this.isConnected() && this.characteristic) {
+       console.log("Printer already connected and characteristic available.");
+       return; // Already good to go
+    }
+
+    if (this.isConnecting) {
+       console.log("Connection already in progress...");
+       return;
+    }
 
     try {
-      this.device = await navigator.bluetooth.requestDevice({
-        acceptAllDevices: true,
-        optionalServices: [
-          '000018f0-0000-1000-8000-00805f9b34fb', // Standard POS generic service
-          'e7810a71-73ae-499d-8c15-faa9aef0c3f2', // Mini thermal printers (e.g. MPT-2)
-          '49535343-fe7d-4ae5-8fa9-9fafd205e455'  // Serial Port Profile
-        ]
-      });
+      this.isConnecting = true;
+      
+      // Only request a new device if we don't have one cached
+      if (!this.device) {
+        this.device = await navigator.bluetooth.requestDevice({
+          acceptAllDevices: true,
+          optionalServices: [
+            '000018f0-0000-1000-8000-00805f9b34fb', // Standard POS generic service
+            'e7810a71-73ae-499d-8c15-faa9aef0c3f2', // Mini thermal printers (e.g. MPT-2)
+            '49535343-fe7d-4ae5-8fa9-9fafd205e455'  // Serial Port Profile
+          ]
+        });
 
-      this.device.addEventListener('gattserverdisconnected', () => {
-        console.log('Printer disconnected');
-        this.characteristic = null;
-      });
+        this.device.addEventListener('gattserverdisconnected', () => {
+          console.warn('Printer disconnected via GATT server event.');
+          this.characteristic = null;
+          // Note: We keep this.device populated so we can TRY to auto-reconnect later 
+          // without popping the chooser again, if the browser supports it.
+        });
+      }
 
-      if (!this.device.gatt) throw new Error("Bluetooth GATT unavailable.");
+      if (!this.device.gatt) throw new Error("Bluetooth GATT unavailable on device.");
+      
+      // If the device is cached but disconnected, connect() will attempt to reconnect
+      // without showing the chooser again.
+      console.log('Connecting to GATT Server...');
       const server = await this.device.gatt.connect();
 
+      console.log('Getting primary services...');
       const services = await server.getPrimaryServices();
+      
       for (const service of services) {
+        console.log(`Checking service: ${service.uuid}`);
         const characteristics = await service.getCharacteristics();
         for (const char of characteristics) {
           if (char.properties.writeWithoutResponse || char.properties.write) {
+            console.log(`Found writable characteristic: ${char.uuid}`);
             this.characteristic = char;
             break;
           }
@@ -114,24 +138,45 @@ class PrinterService {
       }
 
       if (!this.characteristic) {
-        throw new Error("No writable characteristic found.");
+        throw new Error("No writable characteristic found on this device.");
       }
+      
+      console.log('Printer connected successfully!');
     } catch (error: any) {
-      this.device = null;
+      // If we failed to reconnect via cache, clear the cache so the next 
+      // attempt pops the chooser.
+      if (this.device && !this.device.gatt?.connected) {
+         console.warn("Failed to reconnect to cached device. Clearing device cache.", error);
+         this.device = null;
+      }
+      
       this.characteristic = null;
+      
       if (error.message && error.message.includes('Web Bluetooth API globally disabled')) {
          throw new Error('Your browser has Web Bluetooth disabled. If using Chrome, go to chrome://flags/#enable-web-bluetooth and enable it.');
       }
-      if (error.name !== 'NotFoundError' && error.message !== 'User cancelled the requestDevice() chooser.') {
-        throw new Error(`Connection Failed: ${error.message}`);
+      
+      // If the user simply closed the popup, don't throw a massive localized error
+      if (error.name === 'NotFoundError' || error.message.includes('User cancelled')) {
+        console.log('User cancelled device selection.');
+        throw new Error('User cancelled printer selection.');
       }
-      throw error;
+      
+      throw new Error(`Connection Failed: ${error.message}`);
+    } finally {
+      this.isConnecting = false;
     }
   }
 
   public async print(receiptText: string): Promise<void> {
     if (!this.isConnected() || !this.characteristic) {
-      throw new Error("Printer not connected. Please connect first.");
+      // Try to gracefully auto-connect if we have a cached device
+      console.log("Printer not connected. Attempting auto-connect...");
+      await this.connect();
+      
+      if (!this.isConnected() || !this.characteristic) {
+         throw new Error("Printer not connected. Please connect first.");
+      }
     }
 
     try {
@@ -183,14 +228,41 @@ class PrinterService {
       console.log(`Sending ${payload.length} bytes to printer...`);
       // Standard BLE packet size is ~20 bytes without MTU negotiation
       const chunkSize = 20; 
-      for (let i = 0; i < payload.length; i += chunkSize) {
-        const chunk = payload.slice(i, i + chunkSize);
-        await this.characteristic.writeValue(chunk);
-        // Add a small delay between writes to allow the printer's buffer to process, especially for image rasters
-        await new Promise(resolve => setTimeout(resolve, 20));
+      
+      const writeData = async () => {
+         for (let i = 0; i < payload.length; i += chunkSize) {
+           const chunk = payload.slice(i, i + chunkSize);
+           if (!this.characteristic) throw new Error("Connection lost during print");
+           await this.characteristic.writeValue(chunk);
+           await new Promise(resolve => setTimeout(resolve, 20)); // Delay to prevent GATT buffer overflow
+         }
+      };
+
+      try {
+        await writeData();
+      } catch (writeError: any) {
+        console.warn("Write failed. Attempting to reconnect and retry...", writeError);
+        // If the write failed (e.g. GATT operation failed), clear characteristic and try to connect again
+        this.characteristic = null;
+        await this.connect(); // Wait for reconnection
+        
+        if (!this.characteristic) {
+           throw new Error("Failed to recover printing connection.");
+        }
+        
+        // Retry write once
+        console.log("Retrying print after recovery...");
+        await writeData();
       }
+      
+      console.log("Print job completed successfully.");
     } catch (error: any) {
       console.error("Print Error: ", error);
+      
+      if (error.message.includes('User cancelled')) {
+         throw error; // Bubble up user cancellations directly
+      }
+      
       throw new Error(`Print Failed: ${error.message}`);
     }
   }
