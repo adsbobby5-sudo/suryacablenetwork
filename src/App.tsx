@@ -8,6 +8,7 @@ import AddPayment from './components/AddPayment';
 import InvoiceView from './components/InvoiceView';
 import Reports from './components/Reports';
 import Login from './components/Login';
+import Settings from './components/Settings';
 import { Customer, Invoice, Payment } from './types';
 import { onAuthStateChanged } from 'firebase/auth';
 import { collection, onSnapshot, addDoc, doc, updateDoc, deleteDoc } from 'firebase/firestore';
@@ -21,7 +22,8 @@ type ViewState =
   | { type: 'customer-profile', id: string }
   | { type: 'add-payment', invoiceId: string, customerId: string }
   | { type: 'invoice-view', invoiceId: string, customerId: string }
-  | { type: 'reports' };
+  | { type: 'reports' }
+  | { type: 'settings' };
 
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = React.useState(false);
@@ -130,6 +132,7 @@ export default function App() {
       case 'add-customer': setView({ type: 'add-customer' }); break;
       case 'search': setView({ type: 'search' }); break;
       case 'reports': setView({ type: 'reports' }); break;
+      case 'settings': setView({ type: 'settings' }); break;
       default: setView({ type: 'dashboard' });
     }
   };
@@ -144,12 +147,13 @@ export default function App() {
       case 'add-payment': return 'Record Payment';
       case 'invoice-view': return 'Invoice';
       case 'reports': return 'Financial Reports';
+      case 'settings': return 'Admin Settings';
       default: return 'Surya Cable';
     }
   };
 
   const getActiveTab = () => {
-    if (['dashboard', 'add-customer', 'edit-customer', 'search', 'reports'].includes(view.type)) {
+    if (['dashboard', 'add-customer', 'edit-customer', 'search', 'reports', 'settings'].includes(view.type)) {
       return view.type;
     }
     if (view.type === 'customer-profile' || view.type === 'add-payment' || view.type === 'invoice-view') {
@@ -242,6 +246,8 @@ export default function App() {
         );
       case 'reports':
         return <Reports customers={customers} invoices={invoices} payments={payments} />;
+      case 'settings':
+        return <Settings />;
       default:
         return <Dashboard customers={customers} invoices={invoices} payments={payments} onAddCustomer={() => {}} onViewCustomer={() => {}} onViewAll={() => setView({ type: 'reports' })} />;
     }
