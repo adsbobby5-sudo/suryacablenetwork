@@ -115,6 +115,9 @@ class PrinterService {
     } catch (error: any) {
       this.device = null;
       this.characteristic = null;
+      if (error.message && error.message.includes('Web Bluetooth API globally disabled')) {
+         throw new Error('Your browser has Web Bluetooth disabled. If using Chrome, go to chrome://flags/#enable-web-bluetooth and enable it.');
+      }
       if (error.name !== 'NotFoundError' && error.message !== 'User cancelled the requestDevice() chooser.') {
         throw new Error(`Connection Failed: ${error.message}`);
       }
