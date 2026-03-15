@@ -81,11 +81,11 @@ class PrinterService {
 
     try {
       this.device = await navigator.bluetooth.requestDevice({
-        filters: [{ services: ['000018f0-0000-1000-8000-00805f9b34fb'] }], 
+        acceptAllDevices: true,
         optionalServices: [
-          '000018f0-0000-1000-8000-00805f9b34fb',
-          'e7810a71-73ae-499d-8c15-faa9aef0c3f2',
-          '49535343-fe7d-4ae5-8fa9-9fafd205e455'
+          '000018f0-0000-1000-8000-00805f9b34fb', // Standard POS generic service
+          'e7810a71-73ae-499d-8c15-faa9aef0c3f2', // Mini thermal printers (e.g. MPT-2)
+          '49535343-fe7d-4ae5-8fa9-9fafd205e455'  // Serial Port Profile
         ]
       });
 
