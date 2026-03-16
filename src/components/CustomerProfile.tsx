@@ -73,28 +73,31 @@ export default function CustomerProfile({
             <div className="w-20 h-20 rounded-3xl bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center text-4xl font-extrabold shadow-inner">
               {(customer.name || '?').charAt(0)}
             </div>
-            <div>
-              <div className="flex items-center gap-3">
+            <div className="flex-1 w-full md:w-auto">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <h3 className="text-3xl font-bold tracking-tight text-white drop-shadow-sm">{customer.name || 'Unnamed Customer'}</h3>
-                <div className="flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity md:opacity-100">
+                
+                {/* Action Buttons - Always visible on mobile, aligned to flex-start or sm:flex-end */}
+                <div className="flex gap-2">
                   <button 
                     onClick={onEdit}
-                    className="p-2 rounded-xl bg-white/10 hover:bg-white/25 text-white transition-all backdrop-blur-sm"
+                    className="flex-1 sm:flex-none p-2.5 sm:p-2 flex items-center justify-center rounded-xl bg-white/10 hover:bg-white/25 text-white transition-all backdrop-blur-sm shadow-sm"
                     title="Edit Customer"
                   >
                     <Edit2 size={16} />
                   </button>
                   <button 
                     onClick={() => setShowDeleteConfirm(true)}
-                    className="p-2 rounded-xl bg-rose-500/80 hover:bg-rose-500 text-white shadow-lg shadow-rose-500/20 transition-all backdrop-blur-sm"
+                    className="flex-1 sm:flex-none p-2.5 sm:p-2 flex items-center justify-center rounded-xl bg-rose-500/80 hover:bg-rose-500 text-white shadow-lg shadow-rose-500/20 transition-all backdrop-blur-sm"
                     title="Remove Customer"
                   >
                     <Trash2 size={16} />
                   </button>
                 </div>
               </div>
-              <div className="flex flex-wrap items-center gap-3 mt-2">
-                <p className="bg-black/20 backdrop-blur-md px-3 py-1 rounded-lg text-indigo-50 flex items-center gap-1.5 text-xs font-semibold tracking-wider uppercase border border-white/10">
+              
+              <div className="flex flex-wrap items-center gap-3 mt-4 sm:mt-2">
+                <p className="bg-black/20 backdrop-blur-md px-3 py-1.5 sm:py-1 rounded-lg text-indigo-50 flex items-center gap-1.5 text-xs font-semibold tracking-wider uppercase border border-white/10">
                   <Box size={14} /> Box {customer.boxNumber}
                 </p>
                 <p className="text-indigo-200 text-sm font-medium">Customer ID: {customer.id}</p>
