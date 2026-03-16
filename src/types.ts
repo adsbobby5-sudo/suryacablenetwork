@@ -15,6 +15,7 @@ export interface Customer {
   address: string;
   city: string;
   boxNumber: string;
+  cardNumber?: string;
   planId: string;
   depositAmount: number;
   status: CustomerStatus;

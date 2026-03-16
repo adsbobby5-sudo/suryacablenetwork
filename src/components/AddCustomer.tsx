@@ -20,6 +20,7 @@ export default function AddCustomer({ onSave, onCancel, customer, existingCustom
     address: customer?.address || '',
     city: customer?.city || '',
     boxNumber: customer?.boxNumber || '',
+    cardNumber: customer?.cardNumber || '',
     planId: customer?.planId || PLANS[0].id,
     depositAmount: customer?.depositAmount?.toString() || '',
     status: customer?.status || 'Active'
@@ -47,6 +48,18 @@ export default function AddCustomer({ onSave, onCancel, customer, existingCustom
       );
       if (isDuplicate) {
         newErrors.boxNumber = 'Box number is already assigned to another active customer';
+      }
+    }
+
+    // Card Number Uniqueness Validation
+    if (formData.cardNumber) {
+      const isDuplicateCard = existingCustomers.some((c) =>
+        c.cardNumber === formData.cardNumber &&
+        c.status === 'Active' &&
+        c.id !== customer?.id
+      );
+      if (isDuplicateCard) {
+        newErrors.cardNumber = 'Card number is already assigned';
       }
     }
 
@@ -149,6 +162,20 @@ export default function AddCustomer({ onSave, onCancel, customer, existingCustom
               {errors.boxNumber && <p className="text-xs text-rose-500 mt-1 ml-1 font-medium">{errors.boxNumber}</p>}
             </div>
 
+            <div>
+              <label className="label"><CreditCard size={14} className="inline mr-1" /> Card Number</label>
+              <input 
+                type="text" 
+                placeholder="Smart Card Number"
+                className={`input-field ${errors.cardNumber ? 'border-rose-500 ring-rose-500/10' : ''}`}
+                value={formData.cardNumber}
+                onChange={(e) => setFormData({...formData, cardNumber: e.target.value})}
+              />
+              {errors.cardNumber && <p className="text-xs text-rose-500 mt-1 ml-1 font-medium">{errors.cardNumber}</p>}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="label"><CreditCard size={14} className="inline mr-1" /> Select Plan</label>
               <select 

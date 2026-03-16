@@ -100,6 +100,11 @@ export default function CustomerProfile({
                 <p className="bg-black/20 backdrop-blur-md px-3 py-1.5 sm:py-1 rounded-lg text-indigo-50 flex items-center gap-1.5 text-xs font-semibold tracking-wider uppercase border border-white/10">
                   <Box size={14} /> Box {customer.boxNumber}
                 </p>
+                {customer.cardNumber && (
+                  <p className="bg-black/20 backdrop-blur-md px-3 py-1.5 sm:py-1 rounded-lg text-indigo-50 flex items-center gap-1.5 text-xs font-semibold tracking-wider uppercase border border-white/10">
+                    <CreditCard size={14} /> Card {customer.cardNumber}
+                  </p>
+                )}
                 <p className="text-indigo-200 text-sm font-medium">Customer ID: {customer.id}</p>
               </div>
             </div>

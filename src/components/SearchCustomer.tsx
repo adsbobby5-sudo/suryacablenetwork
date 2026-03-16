@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { Search as SearchIcon, User, Phone, Box, ChevronRight, X } from 'lucide-react';
+import { Search as SearchIcon, User, Phone, Box, ChevronRight, X, CreditCard } from 'lucide-react';
 import { Customer, Invoice } from '../types';
 
 interface SearchCustomerProps {
@@ -18,6 +18,7 @@ export default function SearchCustomer({ customers, invoices, onViewCustomer }: 
       (c.name || '').toLowerCase().includes(q) ||
       (c.phone || '').includes(q) ||
       (c.boxNumber || '').toLowerCase().includes(q) ||
+      (c.cardNumber || '').toLowerCase().includes(q) ||
       (c.city || '').toLowerCase().includes(q) ||
       (c.id || '').toLowerCase().includes(q)
     );
@@ -31,7 +32,7 @@ export default function SearchCustomer({ customers, invoices, onViewCustomer }: 
           <SearchIcon className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" size={22} />
           <input 
             type="text"
-            placeholder="Search by Name, Phone, City, Box #, or ID..."
+            placeholder="Search by Name, Phone, Card #, Box #, City, or ID..."
             className="w-full pl-14 pr-14 py-4.5 rounded-2xl border border-white/60 bg-white/80 backdrop-blur-md shadow-sm focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/30 transition-all text-lg font-medium text-slate-800 placeholder:text-slate-400"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
@@ -97,6 +98,11 @@ export default function SearchCustomer({ customers, invoices, onViewCustomer }: 
                       <p className="text-xs font-medium text-slate-500 flex items-center gap-1.5 shrink-0 bg-slate-50/80 px-2 py-0.5 rounded-md">
                         <Box size={12} className="text-slate-400" /> <span className="truncate max-w-[80px] sm:max-w-none">Box {customer.boxNumber}</span>
                       </p>
+                      {customer.cardNumber && (
+                        <p className="text-xs font-medium text-slate-500 flex items-center gap-1.5 shrink-0 bg-slate-50/80 px-2 py-0.5 rounded-md">
+                          <CreditCard size={12} className="text-slate-400" /> <span className="truncate max-w-[90px] sm:max-w-none">Card {customer.cardNumber}</span>
+                        </p>
+                      )}
                       <p className="text-xs font-bold text-indigo-500 flex items-center gap-1.5 truncate max-w-[120px] sm:max-w-none bg-indigo-50/50 px-2 py-0.5 rounded-md">
                         <span className="truncate">{customer.city}</span>
                       </p>
@@ -129,7 +135,7 @@ export default function SearchCustomer({ customers, invoices, onViewCustomer }: 
             </div>
             <div>
               <p className="text-slate-600 font-bold text-lg mb-1">No customers found</p>
-              <p className="text-sm font-medium text-slate-400">Try searching with different keywords</p>
+              <p className="text-sm font-medium text-slate-400">Try searching by name, phone, card #, city or box number</p>
             </div>
           </div>
         )}
